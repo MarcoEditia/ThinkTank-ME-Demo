@@ -1,0 +1,14 @@
+# Database
+data/
+sqlite_data/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Mac OS
+.DS_Store
+
+# Secrets
+.env
