@@ -7,3 +7,16 @@ services:
     volumes:
       # Saves the SQLite database permanently to a folder named 'sqlite_data' on your computer
       - ./sqlite_data:/app/data
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  ollama:
