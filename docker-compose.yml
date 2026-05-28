@@ -1,22 +1,17 @@
-version: '3.8'
 services:
   app:
     build: .
     ports:
       - "8501:8501"
-    volumes:
-      # Saves the SQLite database permanently to a folder named 'sqlite_data' on your computer
-      - ./sqlite_data:/app/data
     environment:
-      - OLLAMA_URL=http://ollama:11434
-
-  ollama:
-    image: ollama/ollama
-    container_name: ollama
-    ports:
-      - "11434:11434"
+      # the LLM server
+      - LLM_API_URL=http://host.docker.internal:8000
+      - LLM_MODEL=qwen3.5-9b
+    extra_hosts:
+      # lets the container talk to the host machine's port 8000
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ollama:/root/.ollama
-
-volumes:
-  ollama:
+      # Saves the SQLite database permanently to a folder named 'sqlite_data'
+      - ./sqlite_data:/app/data
+      # Saves the files to a folder named 'media'
+      - ./media:/app/media

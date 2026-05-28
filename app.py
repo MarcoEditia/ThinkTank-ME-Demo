@@ -1,12 +1,9 @@
 import streamlit as st
 import database
+import llm_client
 import datetime
-import requests
-import os
-import pymupdf4llm
-import tempfile
+from pathlib import Path
 
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 # Initialize the DB when the app starts
 database.init_db()
 
@@ -18,74 +15,87 @@ if "messages" not in st.session_state:
 if "session_id" not in st.session_state:
     st.session_state.session_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
 
-
-# Function to send a prompt to the local Ollama server and return its response
-def query_ollama(prompt, model):
-    url = f"{OLLAMA_URL}/api/generate"  # Ollama's local API endpoint
-    payload = {
-        "model": model,      # Model name (e.g., llama3)
-        "prompt": prompt,    # User's input
-        "stream": False      # Set to False for full (non-streamed) response
-    }
-    # Send POST request and return the response text
-    response = requests.post(url, json=payload)
-    return response.json().get("response", "No response")
-
-
 def process_files(files):
-    """Convert uploaded files into readable text for the LLM prompt."""
     if not files:
-        return ""
-
-    extracted_parts = []
-
+        return []
+    file_list = []
     for file in files:
-        filename = file.name
-        suffix = os.path.splitext(filename)[1] or ".pdf"
+        st.write(file)
+        file_name = file.name
+        file_id = file.file_id
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
-            temp_file.write(file.getvalue())
-            temp_path = temp_file.name
+        # file.type returns something like "image/png", "application/pdf"
+        # mime_type: "image" and file_type: "png"
+        mime_type, file_type = file.type.split('/')
+        
+        file_data = {
+            "name": file_name, 
+            "id": file_id, 
+            "mime": mime_type, 
+            "type": file_type
+        }
 
-        try:
-            markdown_text = pymupdf4llm.to_markdown(temp_path)
-            extracted_parts.append(f"\n\n[FILE: {filename}]\n{markdown_text}")
-        finally:
+        file_list.append(file_data)
+
+    #list of dictionary
+    return file_list
+
+def render_files(file_data, path=None):
+    for file in file_data or []:
+        # path = True means render from database
+        if(path):
+            name = file["name"]
+            safe_name = name.replace("/", "_").replace(" ", "_")
+            fid = file["id"]
+            mime_type = file["mime"]
+            file_type = file["type"]
+            input = path / f"{fid}-{safe_name}"
+        # else render straight from the streamlit chat_input
+        else:
+            name = file.name
+            mime_type, file_type = file.type.split('/')
+            input = file
+
+        st.write(f"Attached: {name}")
+
+        if mime_type == "image":
             try:
-                os.remove(temp_path)
-            except OSError:
-                pass
-
-    return "\n".join(extracted_parts).strip()
-
-def build_conversation_prompt(messages, system_msg="You are a helpful assistant"):
-    prompt =  "<|begin_of_text|><|start_header_id|>system<|end_header_id|>" + system_msg + ".<|eot_id|>"
-    for msg in messages[-10:]:
-        st.write(msg)
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-        if isinstance(content, dict):
-            content = content.get("text", "")
-        prompt += f"<|start_header_id|>{role}<|end_header_id|>\n\n {content}<|eot_id|>"
-    prompt += "<|start_header_id|>assistant<|end_header_id|>"  # Let the model complete
-    st.write(prompt)
-    return prompt
+                st.image(input, caption=name)
+            except Exception:
+                st.error(f"(couldn't render image at {input})")
+        elif mime_type == "video":
+            try:
+                st.video(input, format=f"{mime_type}/{file_type}")
+            except Exception:
+                st.error(f"(couldn't render video at {input})")
+        elif mime_type == "audio":
+            try:
+                st.video(input, format=f"{mime_type}/{file_type}")
+            except Exception:
+                st.error(f"(couldn't render audio at {input})")
+        elif mime_type == "application":
+            try:
+                st.pdf(input)
+            except Exception:
+                st.error(f"(couldn't render application at {input})")
+        else:
+            st.error(f"File not supported")
 
 # --- SIDEBAR  ---
 # Only loads the IDs and Titles
 sidebar_chats = database.get_sidebar_chats()
 
 with st.sidebar:
+    st.markdown("ThinkTank-ME")
+    
+    if st.button("New Chat", width="stretch"):
+        st.session_state.messages = []
+        st.session_state.session_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        st.rerun()
     with st.container():
-        st.markdown("ThinkTank-ME")
-        
-        if st.button("New Chat", width="stretch"):
-            st.session_state.messages = []
-            st.session_state.session_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-            st.rerun()
 
         # display chat history
-        st.markdown("Chat")
+        st.markdown("Recents")
 
         if sidebar_chats:
             for chat in sidebar_chats:
@@ -94,41 +104,56 @@ with st.sidebar:
                 
                 # Create the button
                 if st.button(title, key=session_id, width="stretch"):
-                    # ON CLICK: get the chat history
                     st.session_state.session_id = session_id
                     st.session_state.messages = database.get_chat_messages(session_id)
-                    st.rerun() # Refresh the screen
+                    st.rerun() 
         else:
             st.write("No history yet.")
 
 # --- MAIN UI AND LOGIC ---
-# Render the current chat
+# Render the existing chat/chat history from the database
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
+        if message.get("files"):
+            dir_path = Path("media")/st.session_state.session_id
+            st.write("directory path:", dir_path)
+            render_files(message["files"], dir_path)
 
-if prompt := st.chat_input("Ask a question..." ,accept_file="multiple", file_type=["pdf"]):
-    #prompt.text = the text and prompt.files = is where the files at  ,accept_file="multiple", file_type=["jpg", "jpeg", "png", "pdf"]
-    # Render and save user prompt
+if prompt := st.chat_input("Ask a question..." ,accept_file="multiple", file_type=["pdf", "image", "audio", "video"]):
     text = prompt.text or ""
-    files = prompt.files
-    prompt = prompt.text + process_files(files)
+    files = prompt.files or None
+
     with st.chat_message("user"):
         st.markdown(text)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    # Build conversation context and query Ollama
-    conversation_text = build_conversation_prompt(st.session_state.messages)
-    response = query_ollama(conversation_text, "tinyllama")
+        # render the file into the chat from streamlit cache
+        if files:
+            render_files(files)
+
+    file_data = process_files(files)
+    user_message = {"role": "user", "content": text, "files": file_data}
+    st.session_state.messages.append(user_message)
+
     with st.chat_message("assistant"):
-        st.markdown(response)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        with st.spinner("Processing..."):
+            result = llm_client.query_model(st.session_state.messages)
+            response_text = result["content"]
+            reasoning_text = result["reasoning"]
+
+        if reasoning_text:
+            with st.expander("💭 View Thinking Process"):
+                st.markdown(reasoning_text)
+
+        st.markdown(response_text)
+
+    st.session_state.messages.append({"role": "assistant", "content": response_text})
     is_new_chat = len(st.session_state.messages) == 2
 
     # Generate Title if it's the first message, otherwise keep the existing one
     chat_title = st.session_state.messages[0]["content"][:30] + "..." if len(st.session_state.messages) > 0 else "New Chat"
 
     # Save to database
-    database.save_chat(st.session_state.session_id, chat_title, st.session_state.messages)
+    database.save_chat(st.session_state.session_id, chat_title, st.session_state.messages, files)
+    st.write("DEBUG: Saved messages:", st.session_state.messages)  # Shows what was saved
     if is_new_chat:
         st.rerun()

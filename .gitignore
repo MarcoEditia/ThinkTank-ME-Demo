@@ -3,6 +3,9 @@ data/
 sqlite_data/
 *.db
 
+# Media
+media/
+
 # Python
 __pycache__/
 *.pyc
