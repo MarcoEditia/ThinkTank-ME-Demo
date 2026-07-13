@@ -7,6 +7,14 @@ from pathlib import Path
 # Initialize the DB when the app starts
 database.init_db()
 
+# css
+def load_css(file_path):
+    with open(file_path) as f:
+        st.html(f"<style>{f.read()}</style>")
+
+css_path = Path(".streamlit/styles.css")
+load_css(css_path)
+
 # --- PAGE CONFIG & SESSION STATE ---
 st.set_page_config(page_title="LLM Demo", page_icon="🤖")
 
@@ -86,8 +94,6 @@ def render_files(file_data, path=None):
 sidebar_chats = database.get_sidebar_chats()
 
 with st.sidebar:
-    st.markdown("ThinkTank-ME")
-    
     if st.button("New Chat", width="stretch"):
         st.session_state.messages = []
         st.session_state.session_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -95,20 +101,20 @@ with st.sidebar:
     with st.container():
 
         # display chat history
-        st.markdown("Recents")
+        with st.expander("Recents"):
 
-        if sidebar_chats:
-            for chat in sidebar_chats:
-                session_id = chat[0]
-                title = chat[1]
-                
-                # Create the button
-                if st.button(title, key=session_id, width="stretch"):
-                    st.session_state.session_id = session_id
-                    st.session_state.messages = database.get_chat_messages(session_id)
-                    st.rerun() 
-        else:
-            st.write("No history yet.")
+            if sidebar_chats:
+                for chat in sidebar_chats:
+                    session_id = chat[0]
+                    title = chat[1]
+                    
+                    # Create the button
+                    if st.button(title, key=session_id, width="stretch"):
+                        st.session_state.session_id = session_id
+                        st.session_state.messages = database.get_chat_messages(session_id)
+                        st.rerun() 
+            else:
+                st.write("No history yet.")
 
 # --- MAIN UI AND LOGIC ---
 # Render the existing chat/chat history from the database
@@ -120,7 +126,8 @@ for message in st.session_state.messages:
             st.write("directory path:", dir_path)
             render_files(message["files"], dir_path)
 
-if prompt := st.chat_input("Ask a question..." ,accept_file="multiple", file_type=["pdf", "image", "audio", "video"]):
+if prompt := st.chat_input("Ask a question..."):
+    # st.chat_input("Ask a question..." ,accept_file="multiple", file_type=["pdf", "image", "audio", "video"]):
     text = prompt.text or ""
     files = prompt.files or None
 

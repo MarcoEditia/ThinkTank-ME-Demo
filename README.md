@@ -38,8 +38,8 @@ cd ThinkTank-ME-Demo
 Set the LLM endpoint before starting the app:
 
 ```bash
-export LLM_API_URL=http://your-llm-server:11434
-export LLM_MODEL=qwen3.5:0.8b
+LLM_API_URL=http://your-llm-server:11434
+LLM_MODEL=qwen3.5:0.8b
 ```
 
 Then start the app:

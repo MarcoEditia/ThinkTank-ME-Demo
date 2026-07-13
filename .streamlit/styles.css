@@ -1,0 +1,91 @@
+:root{
+    --primary: rgb(14, 17, 23);
+    --secondary: rgb(34, 37, 43);
+}
+
+.stChatInput {
+    border: 0px !important;
+}
+
+.stChatInput div{
+    background-color: var(--secondary) !important;
+    border: 0px;
+}
+
+
+.stSidebar {
+    border-right: 0.8px solid var(--secondary) !important;
+}
+
+
+/* Reduce sidebar header padding */
+.stSidebar [data-testid="stSidebarHeader"] {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+
+/* Reduce sidebar content padding */
+.stSidebar [data-testid="stSidebarContent"] {
+    background-color: var(--primary) !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+.stSidebar .stExpander details{
+    border: 0px !important;
+    background-color: var(--primary) !important;
+}
+
+.stSidebar .stExpander details summary {
+    padding: 0.25rem 0.5rem !important;
+    background-color: var(--primary) !important;
+    transition: none !important;
+}
+
+.stSidebar .stExpander details summary span {
+    flex-direction: row-reverse !important;
+    justify-content: left !important;
+}
+
+.stSidebar .stExpander details summary span div {
+    flex-grow: 0 !important;
+    width: fit-content !important;
+
+}
+
+.stSidebar .stExpander details [data-testid="stExpanderDetails"] {
+    padding: 0px !important;
+    border: 0px;
+}
+
+.stSidebar button {
+    background-color: var(--primary) !important;
+    border-radius: 10px !important;
+    border: 0px !important;
+    min-height: 32px !important;
+    padding: 0.1rem 0.5rem !important;
+    margin: 2px 0 !important;
+    justify-content: flex-start !important;
+}
+
+.stSidebar button:hover {
+    background-color: var(--secondary) !important;
+}
+
+/* Target the inner div that centers content */
+.stSidebar button div[class*="st-emotion-cache-1lads1q"] {
+    justify-content: flex-start !important;
+}
+
+/* Target the span wrapper */
+.stSidebar button span {
+    display: flex !important;
+    justify-content: flex-start !important;
+}
+
+.stSidebar p {
+    font-size: 1rem !important;
+}
+
+.stSidebar .stVerticalBlock {
+    gap: 0 !important;
+}
