@@ -1,93 +1,30 @@
 import streamlit as st
-import database
-import llm_client
 import datetime
 from pathlib import Path
+import re
+from urllib.parse import urlparse
+
+import database
+from utils import file_utils, url_utils
+import llm_client
 
 # Initialize the DB when the app starts
 database.init_db()
-
 # css
-def load_css(file_path):
+def load_css(file_path):  
     with open(file_path) as f:
         st.html(f"<style>{f.read()}</style>")
 
 css_path = Path(".streamlit/styles.css")
 load_css(css_path)
 
-# --- PAGE CONFIG & SESSION STATE ---
-st.set_page_config(page_title="LLM Demo", page_icon="🤖")
+# --- PAGE CONFIG & SESSION STATE --- 
+st.set_page_config(page_title="Polymarket Forecast Demo", page_icon="📈")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
     st.session_state.session_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-
-def process_files(files):
-    if not files:
-        return []
-    file_list = []
-    for file in files:
-        st.write(file)
-        file_name = file.name
-        file_id = file.file_id
-
-        # file.type returns something like "image/png", "application/pdf"
-        # mime_type: "image" and file_type: "png"
-        mime_type, file_type = file.type.split('/')
-        
-        file_data = {
-            "name": file_name, 
-            "id": file_id, 
-            "mime": mime_type, 
-            "type": file_type
-        }
-
-        file_list.append(file_data)
-
-    #list of dictionary
-    return file_list
-
-def render_files(file_data, path=None):
-    for file in file_data or []:
-        # path = True means render from database
-        if(path):
-            name = file["name"]
-            safe_name = name.replace("/", "_").replace(" ", "_")
-            fid = file["id"]
-            mime_type = file["mime"]
-            file_type = file["type"]
-            input = path / f"{fid}-{safe_name}"
-        # else render straight from the streamlit chat_input
-        else:
-            name = file.name
-            mime_type, file_type = file.type.split('/')
-            input = file
-
-        st.write(f"Attached: {name}")
-
-        if mime_type == "image":
-            try:
-                st.image(input, caption=name)
-            except Exception:
-                st.error(f"(couldn't render image at {input})")
-        elif mime_type == "video":
-            try:
-                st.video(input, format=f"{mime_type}/{file_type}")
-            except Exception:
-                st.error(f"(couldn't render video at {input})")
-        elif mime_type == "audio":
-            try:
-                st.video(input, format=f"{mime_type}/{file_type}")
-            except Exception:
-                st.error(f"(couldn't render audio at {input})")
-        elif mime_type == "application":
-            try:
-                st.pdf(input)
-            except Exception:
-                st.error(f"(couldn't render application at {input})")
-        else:
-            st.error(f"File not supported")
 
 # --- SIDEBAR  ---
 # Only loads the IDs and Titles
@@ -116,6 +53,46 @@ with st.sidebar:
             else:
                 st.write("No history yet.")
 
+# --- TOP CONTROL PANEL ---
+with st.container(border=True):
+    # Split top row into two columns (2:1 ratio)
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        input_url_or_question = st.text_input(
+            "Polymarket URL or Question",
+            placeholder="https://polymarket.com/event/...",
+            key="top_url_input"
+        )
+
+    with col2:
+        selected_market = st.selectbox(
+            "Select Market",
+            options=[
+                "Will the Fed cut rates in June 2024?",
+                "US Election 2024",
+                "Custom..."
+            ],
+            key="top_market_select"
+        )
+
+    # Multi-select toggle pills
+    selected_modes = st.pills(
+        label="Analysis Modes",
+        options=[
+            "🌐 Use Web Evidence",
+            "📊 Use Market Signals",
+            "👤 Use Domain Expert",
+            "⚖️ Contrarian View"
+        ],
+        default=["🌐 Use Web Evidence", "📊 Use Market Signals", "👤 Use Domain Expert"],
+        selection_mode="multi",
+        label_visibility="collapsed"
+    )
+
+    # Optional: Direct button to trigger processing from the top panel
+    top_submit = st.button("Submit Query", type="primary", use_container_width=True)
+
 # --- MAIN UI AND LOGIC ---
 # Render the existing chat/chat history from the database
 for message in st.session_state.messages:
@@ -124,20 +101,23 @@ for message in st.session_state.messages:
         if message.get("files"):
             dir_path = Path("media")/st.session_state.session_id
             st.write("directory path:", dir_path)
-            render_files(message["files"], dir_path)
+            file_utils.render_files(message["files"], dir_path)
 
-if prompt := st.chat_input("Ask a question..."):
-    # st.chat_input("Ask a question..." ,accept_file="multiple", file_type=["pdf", "image", "audio", "video"]):
+URL_REGEX = r'(https?://[^\s;,\s]+)'
+if prompt := st.chat_input("Paste a Polymarket URL and optional market name..." ,accept_file="multiple", file_type=["pdf", "image", "audio", "video"]):
     text = prompt.text or ""
     files = prompt.files or None
+    valid_urls = re.findall(URL_REGEX, prompt.text)
+    
+    urls = url_utils.process_urls(valid_urls)
 
     with st.chat_message("user"):
         st.markdown(text)
         # render the file into the chat from streamlit cache
         if files:
-            render_files(files)
+            file_utils.render_files(files)
 
-    file_data = process_files(files)
+    file_data = file_utils.process_files(files)
     user_message = {"role": "user", "content": text, "files": file_data}
     st.session_state.messages.append(user_message)
 
