@@ -9,6 +9,9 @@ media/
 # Python
 __pycache__/
 *.pyc
+.demovenv/
+.polyvenv
+
 
 # Mac OS
 .DS_Store

@@ -1,81 +1,84 @@
 # ThinkTank-ME Demo
 
-A lightweight Streamlit chat app that sends prompts to a configurable LLM server, uses SQLite for chat history, and supports PDF file prompting.
+ThinkTank-ME Demo is a two-part Polymarket forecasting workspace:
 
-## Features
+- a Streamlit frontend in [app/](app)
+- a FastAPI backend in [server/](server)
 
-- Streamlit chat UI with persistent conversation history
-- File prompting
-- SQLite storage for chats and sidebar history
-- Docker Compose setup for the app container
+The frontend lets you paste a Polymarket URL, browse previous chats, upload files, and view forecast output. The backend handles market inspection and forecast generation.
 
-## Tech Stack
+## Repository Layout
 
-- Python 3.12
-- Streamlit
-- SQLite
-- Docker / Docker Compose
+- [app/](app) - Streamlit UI, local chat storage, file uploads, and API client logic
+- [server/](server) - FastAPI forecast service and embedding/index initialization
+- [.gitignore](.gitignore) - ignores local data, media, and virtualenv folders
 
-## Project Files
+## How It Works
 
-- `app.py` - Streamlit UI, chat flow, file handling, and LLM requests
-- `database.py` - SQLite setup and chat persistence
-- `docker-compose.yml` - App service definition
-- `Makefile` - Shortcuts for starting and stopping the app
-- `requirements.txt` - Python dependencies
+1. The Streamlit app sends a Polymarket URL to the FastAPI backend.
+2. The backend inspects the market and returns normalized market data.
+3. The frontend stores chat history locally in SQLite and renders the response.
 
 ## Quick Start
 
-### 1. Clone the repo
+### 1. Start the backend
 
 ```bash
-git clone https://github.com/MarcoEditia/ThinkTank-ME-Demo.git
-cd ThinkTank-ME-Demo
-```
-
-### 2. First-time setup
-
-Set the LLM endpoint before starting the app:
-
-```bash
-LLM_API_URL=http://your-llm-server:11434
-LLM_MODEL=qwen3.5:0.8b
-```
-
-Then start the app:
-
-```bash
-make b
-```
-
-### 3. Open the app
-
-- Streamlit UI: http://localhost:8501
-- LLM API: set by `LLM_API_URL`
-
-## Makefile Commands
-
-### Streamlit App Shortcut
-- `make b` - (build) - build and start the app container
-- `make re` - (rebuild) - rebuild from scratch
-- `make d` - (down) - stop the app containers
-
-## Docker Notes
-
-- The app container reads `LLM_API_URL` and `LLM_MODEL` from the environment
-- SQLite data is persisted in `./sqlite_data`
-
-## Local Development
-
-If you want to run the Streamlit app directly on your machine, install the Python dependencies first:
-
-```bash
+cd server
+cp .env.example .env
+python3 -m venv .polyvenv
+source .polyvenv/bin/activate
 pip install -r requirements.txt
-streamlit run app.py
+make run
 ```
 
-If you do this locally, make sure your LLM server is reachable at the value you set in `LLM_API_URL`.
+Backend defaults:
+- API: `http://127.0.0.1:8000`
+- Health check: `GET /health`
+- Inspect endpoint: `POST /inspect`
+- Forecast endpoint: `POST /forecast`
 
-## Troubleshooting
+### 2. Start the Streamlit frontend
 
-- If the app cannot reach the LLM server, check `LLM_API_URL` and the server logs.
+```bash
+cd app
+python3 -m venv .demovenv
+source .demovenv/bin/activate
+pip install -r requirements.txt
+BACKEND_API_URL=http://127.0.0.1:8000 streamlit run app.py
+```
+
+Or use the app Makefile shortcut:
+
+```bash
+cd app
+make bs
+```
+
+## Environment Variables
+
+### Frontend
+
+- `BACKEND_API_URL` - URL of the FastAPI backend
+- `REQUEST_TIMEOUT_SECONDS` - request timeout for backend calls
+
+### Backend
+
+- `ANTHROPIC_API_KEY` - API key used by the forecast pipeline
+- `CLAUDE_MODEL` - Claude model name
+- `EMBEDDING_MODEL` - embedding model name
+- `EMBEDDING_MODEL_PATH` - local embedding model path, if used
+- `REQUEST_TIMEOUT_SECONDS` - backend request timeout
+- `VECTOR_INDEX_STORAGE` - path to the vector index storage directory
+
+## Local Data
+
+- Chat history is stored in SQLite under `app/data/chat_history.db`
+- Uploaded files are copied into `app/media/`
+- The backend uses its configured vector storage directory for the skill index
+
+## Notes
+
+- Keep the frontend and backend in separate virtual environments.
+- Do not commit local data, uploads, or virtualenv directories.
+- If you change folders again, update the relative paths in the app and backend docs together.

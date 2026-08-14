@@ -7,3 +7,6 @@ b:
 re:
 	docker compose down
 	docker compose up --build
+
+bs:
+	python -m streamlit run app.py

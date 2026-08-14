@@ -19,7 +19,7 @@ def init_db():
     try:
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS history
-                     (session_id TEXT PRIMARY KEY, title TEXT, messages TEXT, last_updated TEXT)
+                    (session_id TEXT PRIMARY KEY, title TEXT, messages TEXT, last_updated TEXT, url TEXT, available_markets TEXT)
                   ''')
         conn.commit()
     finally:
@@ -48,19 +48,24 @@ def get_chat_messages(session_id):
         c = conn.cursor()
 
         # Select the messages from specific ID
-        c.execute("SELECT messages FROM history WHERE session_id = ?", (session_id,))
+        c.execute("SELECT messages, url, available_markets, title FROM history WHERE session_id = ?", (session_id,))
         row = c.fetchone()
         if row:
-            return json.loads(row[0]) # Convert the JSON string back to a Python list
-        return []
+            messages = json.loads(row[0]) if row[0] else []
+            url = row[1] or ""
+            available_markets = json.loads(row[2]) if row[2] else []
+            title = row[3] or ""
+
+            return messages, url, available_markets, title
+        return [], "", []
     except Exception as e:
         print(f"get_chat_messages error {session_id}: {e}")
-        return []
+        return [], "", []
     finally:
         conn.close()
 
 
-def save_chat(session_id, title, messages_array, files=None):
+def save_chat(session_id, title, messages_array, files=None, url=None, available_markets=None):
     conn = get_connection()
     try:
         c = conn.cursor()
@@ -78,8 +83,8 @@ def save_chat(session_id, title, messages_array, files=None):
                 destination_file_path.write_bytes(file_bytes)
         
         c.execute(
-            "INSERT OR REPLACE INTO history (session_id, title, messages, last_updated) VALUES (?, ?, ?, ?)",
-            (session_id, title, json.dumps(messages_array), datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            "INSERT OR REPLACE INTO history (session_id, title, messages, last_updated, url, available_markets) VALUES (?, ?, ?, ?, ? ,?)",
+            (session_id, title, json.dumps(messages_array), datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), url, json.dumps(available_markets or []))
         )
         conn.commit()
         return True
