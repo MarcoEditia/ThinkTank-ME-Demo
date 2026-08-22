@@ -34,6 +34,15 @@ if "available_markets" not in st.session_state:
     st.session_state.available_markets = []
 if "chat_title" not in st.session_state:
     st.session_state.chat_title = ""
+if "selected_agents" not in st.session_state:
+    st.session_state.selected_agents = [
+        "base_rate",
+        "domain",
+        "contrarian",
+        "resolution",
+    ]
+if "use_research" not in st.session_state:
+    st.session_state.use_research = True
 
 # --- SIDEBAR  ---
 # Only loads the IDs and Titles
@@ -46,6 +55,13 @@ with st.sidebar:
         st.session_state.session_url = ""
         st.session_state.available_markets = []
         st.session_state.chat_title = ""
+        st.session_state.selected_agents = [
+            "base_rate",
+            "domain",
+            "contrarian",
+            "resolution",
+        ]
+        st.session_state.use_research = True
         st.rerun()
     with st.container():
 
@@ -97,19 +113,18 @@ with st.container(border=True):
             key="top_market_select"
         )
 
-    # # Multi-select toggle pills
-    # selected_modes = st.pills(
-    #     label="Analysis Modes",
-    #     options=[
-    #         "🌐 Use Web Evidence",
-    #         "📊 Use Market Signals",
-    #         "👤 Use Domain Expert",
-    #         "⚖️ Contrarian View"
-    #     ],
-    #     default=["🌐 Use Web Evidence", "📊 Use Market Signals", "👤 Use Domain Expert"],
-    #     selection_mode="multi",
-    #     label_visibility="collapsed"
-    # )
+    selected_agents = st.multiselect(
+        "Forecast agents",
+        options=["base_rate", "domain", "contrarian", "resolution"],
+        format_func=lambda role: {
+            "base_rate": "Base rate",
+            "domain": "Domain",
+            "contrarian": "Contrarian",
+            "resolution": "Resolution",
+        }[role],
+        key="selected_agents",
+    )
+    use_research = st.checkbox("Web research", key="use_research")
 
     # Optional: Direct button to trigger processing from the top panel
     top_submit = st.button("Submit Query", type="primary", use_container_width=True)
@@ -147,6 +162,10 @@ elif prompt:
     files = prompt.files or None
 
 if text:
+    if not selected_agents:
+        st.error("Select at least one forecast agent.")
+        st.stop()
+
     found_urls = re.findall(URL_REGEX, text)
     primary_url = found_urls[0] if found_urls else ""
     
@@ -181,7 +200,12 @@ if text:
 
     with st.chat_message("assistant"):
         with st.spinner("Processing..."):
-            result = llm_client.query_model(messages_array=st.session_state.messages, session_url=st.session_state.session_url)
+            result = llm_client.query_model(
+                messages_array=st.session_state.messages,
+                session_url=st.session_state.session_url,
+                selected_agents=selected_agents,
+                use_research=use_research,
+            )
             response_text = result["content"]
             reasoning_text = result["reasoning"]
 

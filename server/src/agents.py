@@ -7,11 +7,18 @@ from typing import TypeVar
 from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from pydantic import BaseModel
 
-from src.config import settings
-from src.schemas import EvidencePacket, ExpertForecast, ForecastContract
-from src.skills import load_skill, retrieve_relevant_skill, retrieve_skill_index
+from src.schemas import AgentRole, EvidencePacket, ExpertForecast, ForecastContract
+from src.skills import load_skill
 
 T = TypeVar("T", bound=BaseModel)
+
+AGENT_SKILLS: dict[AgentRole, str] = {
+    "base_rate": "base-rate-forecasting",
+    "domain": "domain-forecasting",
+    "contrarian": "contrarian-review",
+    "resolution": "resolution-review",
+}
+DEFAULT_AGENT_ROLES: tuple[AgentRole, ...] = tuple(AGENT_SKILLS)
 
 async def _run_structured_agent(
     *,
@@ -98,11 +105,11 @@ Tasks:
     )
 
 
-def _expert_system_prompt(expert: str) -> str:
+def _expert_system_prompt(expert: AgentRole) -> str:
     common = load_skill("superforecasting-method")
     evidence = load_skill("evidence-quality")
 
-    role_skill = load_skill(expert)
+    role_skill = load_skill(AGENT_SKILLS[expert])
     
     return f"""
 You are an independent {expert} forecasting agent.
@@ -121,7 +128,7 @@ Do not invent sources or facts that are absent from the evidence packet.
 
 
 async def run_expert(
-    expert: str,
+    expert: AgentRole,
     contract: ForecastContract,
     evidence: EvidencePacket,
 ) -> ExpertForecast:
@@ -154,15 +161,10 @@ resolution risks, and future update triggers.
 async def run_all_experts(
     contract: ForecastContract,
     evidence: EvidencePacket,
-    experts: list | None = None,
+    experts: list[AgentRole] | None = None,
 ) -> list[ExpertForecast]:
     if experts is None:
-        # load the stored skill index and retrieve relevant skills using the
-        # contract question as the prompt
-        index = await retrieve_skill_index(settings.vector_index_storage)
-        print("retrieved")
-        prompt = contract.question 
-        experts = await retrieve_relevant_skill(prompt=prompt, index=index)
+        experts = list(DEFAULT_AGENT_ROLES)
     return list(
         await asyncio.gather(
             *(run_expert(expert, contract, evidence) for expert in experts)

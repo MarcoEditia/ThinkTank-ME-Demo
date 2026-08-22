@@ -53,6 +53,8 @@ async def forecast_endpoint(request: ForecastRequest) -> ForecastResponse:
             request.url,
             market_query=request.market_query,
             market_index=request.market_index,
+            selected_agents=request.selected_agents,
+            use_research=request.use_research,
         )
     # except Exception as exc:
     #     raise HTTPException(status_code=500, detail=str(exc)) from exc

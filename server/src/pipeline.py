@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from src.agents import research_evidence, run_all_experts
 from src.aggregation import aggregate_forecasts
 from src.polymarket import inspect_polymarket_url
-from src.schemas import ForecastResponse, MarketContext
+from src.schemas import AgentRole, EvidencePacket, ForecastResponse, MarketContext
 
 
 class ForecastError(Exception):
@@ -28,6 +30,8 @@ async def run_forecast(
     url: str,
     market_query: str | None = None,
     market_index: int | None = None,
+    selected_agents: list[AgentRole] | None = None,
+    use_research: bool = True,
 ) -> ForecastResponse:
     # try:
         context = await inspect_market(
@@ -38,13 +42,18 @@ async def run_forecast(
 
         # Only the contract—not the live market probability—is sent to research
         # and the independent expert agents.
-        evidence = await research_evidence(context.forecast_contract)
-        print("hi")
+        if use_research:
+            evidence = await research_evidence(context.forecast_contract)
+        else:
+            evidence = EvidencePacket(
+                evidence_cutoff_time=datetime.now(timezone.utc).isoformat(),
+                key_unknowns=["Web research was disabled for this forecast."],
+            )
         expert_forecasts = await run_all_experts(
             context.forecast_contract,
             evidence,
+            experts=selected_agents,
         )
-        print("lol")
         aggregate = aggregate_forecasts(
             expert_forecasts,
             context.market_snapshot.target_probability,
@@ -54,8 +63,10 @@ async def run_forecast(
             warnings.append("The selected market is already closed.")
         if not context.forecast_contract.resolution_criteria:
             warnings.append("Resolution criteria are missing or empty.")
-        if not evidence.evidence:
+        if use_research and not evidence.evidence:
             warnings.append("The research agent returned no evidence items.")
+        if not use_research:
+            warnings.append("Web research was disabled for this forecast.")
         if aggregate.agreement == "low":
             warnings.append("Expert forecasts have high dispersion.")
 
@@ -69,4 +80,3 @@ async def run_forecast(
         ) 
     # except Exception as exc:
     #     raise ForecastError(f"Forecasting pipeline failed for {url}") from exc
-

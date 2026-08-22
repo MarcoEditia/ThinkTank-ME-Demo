@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+AgentRole = Literal["base_rate", "domain", "contrarian", "resolution"]
+
 
 class ParsedPolymarketURL(BaseModel):
     original_url: str
@@ -73,7 +75,7 @@ class EvidencePacket(BaseModel):
 
 
 class ExpertForecast(BaseModel):
-    expert: Literal["base_rate", "domain", "contrarian", "resolution"]
+    expert: AgentRole
     probability: float = Field(ge=0.01, le=0.99)
     confidence: float = Field(ge=0.0, le=1.0)
     base_rate: float | None = Field(default=None, ge=0.0, le=1.0)
@@ -110,3 +112,5 @@ class ForecastRequest(BaseModel):
     # market_index remains available as a fallback/debugging option.
     market_query: str | None = None
     market_index: int | None = Field(default=None, ge=0)
+    selected_agents: list[AgentRole] | None = Field(default=None, min_length=1)
+    use_research: bool = True

@@ -125,7 +125,7 @@ def _extract_backend_error(response):
     return text or f"HTTP {response.status_code}"
 
 
-def query_model(messages_array, session_url):
+def query_model(messages_array, session_url, selected_agents, use_research):
     url, market_query = _extract_forecast_request(messages_array, session_url)
 
     if not url:
@@ -134,7 +134,11 @@ def query_model(messages_array, session_url):
             "reasoning": "",
         }
 
-    api_payload = {"url": url}
+    api_payload = {
+        "url": url,
+        "selected_agents": selected_agents,
+        "use_research": use_research,
+    }
     api_payload["market_query"] = market_query
     try:
         inspect_response = requests.post(
