@@ -69,6 +69,10 @@ def _format_forecast_response(data):
     if probability_gap is not None:
         content_lines.append(f"- Gap vs market: **{probability_gap:+.1%}**")
 
+    if data.get("cache_hit"):
+        cached_at = data.get("cached_at", "recently")
+        content_lines.append(f"- Cached result: **{cached_at}**")
+
     content_lines.extend(
         [
             f"- Agreement: **{aggregate['agreement']}**",

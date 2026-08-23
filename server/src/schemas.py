@@ -104,6 +104,8 @@ class ForecastResponse(BaseModel):
     expert_forecasts: list[ExpertForecast]
     aggregate: AggregatedForecast
     warnings: list[str] = Field(default_factory=list)
+    cache_hit: bool = False
+    cached_at: str | None = None
 
 
 class ForecastRequest(BaseModel):

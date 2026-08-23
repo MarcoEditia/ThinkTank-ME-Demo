@@ -2,13 +2,14 @@ from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 import os
 
-from src.pipeline import inspect_market, run_forecast
+from src.pipeline import forecast_cache, inspect_market, run_forecast
 from src.config import settings
 from src.skills import initialize_skill_index
 from src.schemas import ForecastRequest, ForecastResponse, MarketContext
 
 @asynccontextmanager
 async def lifespan(server: FastAPI):
+    forecast_cache.initialize()
 
     print("loading embedding model")
 
@@ -48,7 +49,7 @@ async def inspect_endpoint(request: ForecastRequest) -> MarketContext:
 
 @server.post("/forecast", response_model=ForecastResponse)
 async def forecast_endpoint(request: ForecastRequest) -> ForecastResponse:
-    # try:
+    try:
         return await run_forecast(
             request.url,
             market_query=request.market_query,
@@ -56,5 +57,8 @@ async def forecast_endpoint(request: ForecastRequest) -> ForecastResponse:
             selected_agents=request.selected_agents,
             use_research=request.use_research,
         )
-    # except Exception as exc:
-    #     raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Forecasting failed. Please try again or select fewer agents.",
+        ) from exc
